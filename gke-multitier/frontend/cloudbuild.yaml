@@ -1,23 +1,59 @@
 steps:
 # 🔹 Build Backend
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:latest', './backend']
+  args: [
+    'build',
+    '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:$SHORT_SHA',
+    './backend'
+  ]
 
 # 🔹 Push Backend
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:latest']
+  args: [
+    'push',
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:$SHORT_SHA'
+  ]
 
 # 🔹 Build Frontend
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:latest', './frontend']
+  args: [
+    'build',
+    '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:$SHORT_SHA',
+    './frontend'
+  ]
 
 # 🔹 Push Frontend
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:latest']
+  args: [
+    'push',
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:$SHORT_SHA'
+  ]
 
-# 🔹 Deploy (this triggers pull automatically)
+# 🔹 Apply Kubernetes configs (first time / updates)
 - name: 'gcr.io/cloud-builders/kubectl'
   args: ['apply', '-f', 'k8s/']
+  env:
+  - 'CLOUDSDK_COMPUTE_REGION=asia-south1'
+  - 'CLOUDSDK_CONTAINER_CLUSTER=my-cluster'
+
+# 🔹 Force update backend image
+- name: 'gcr.io/cloud-builders/kubectl'
+  args:
+  - set
+  - image
+  - deployment/backend
+  - backend=asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:$SHORT_SHA
+  env:
+  - 'CLOUDSDK_COMPUTE_REGION=asia-south1'
+  - 'CLOUDSDK_CONTAINER_CLUSTER=my-cluster'
+
+# 🔹 Force update frontend image
+- name: 'gcr.io/cloud-builders/kubectl'
+  args:
+  - set
+  - image
+  - deployment/frontend
+  - frontend=asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:$SHORT_SHA
   env:
   - 'CLOUDSDK_COMPUTE_REGION=asia-south1'
   - 'CLOUDSDK_CONTAINER_CLUSTER=my-cluster'
