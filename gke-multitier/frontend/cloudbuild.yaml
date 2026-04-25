@@ -1,0 +1,23 @@
+steps:
+# 🔹 Build Backend
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:latest', './backend']
+
+# 🔹 Push Backend
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/backend:latest']
+
+# 🔹 Build Frontend
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:latest', './frontend']
+
+# 🔹 Push Frontend
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/frontend:latest']
+
+# 🔹 Deploy (this triggers pull automatically)
+- name: 'gcr.io/cloud-builders/kubectl'
+  args: ['apply', '-f', 'k8s/']
+  env:
+  - 'CLOUDSDK_COMPUTE_REGION=asia-south1'
+  - 'CLOUDSDK_CONTAINER_CLUSTER=my-cluster'
