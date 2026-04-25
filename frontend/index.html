@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GKE Store — Multi-Tier Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+    :root {
+      --blue:   #1a73e8;
+      --green:  #188038;
+      --red:    #c5221f;
+      --bg:     #f8f9fa;
+      --card:   #ffffff;
+      --border: #e8eaed;
+      --text:   #202124;
+      --muted:  #5f6368;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: var(--blue); color: #fff; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    header h1 { font-size: 18px; font-weight: 500; display: flex; align-items: center; gap: 10px }
+    .arch-badge {
+      display: flex; gap: 6px; font-size: 11px;
+    }
+    .badge {
+      padding: 2px 10px; border-radius: 99px; font-weight: 600; letter-spacing: .02em;
+    }
+    .badge-web  { background: #e8f0fe; color: #1a73e8 }
+    .badge-app  { background: #e6f4ea; color: #188038 }
+    .badge-db   { background: #fce8e6; color: #c5221f }
+
+    /* ── Arch banner ── */
+    .arch-banner {
+      background: #fff; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; gap: 0;
+      padding: 10px 24px; font-size: 12px;
+    }
+    .arch-node {
+      padding: 6px 16px; border-radius: 6px; font-weight: 600; text-align: center; min-width: 130px;
+    }
+    .arch-node small { display: block; font-weight: 400; color: var(--muted); margin-top: 1px; font-size: 10px }
+    .arch-arrow { font-size: 18px; color: var(--muted); padding: 0 8px }
+    .n-web { background: #e8f0fe; color: #1a73e8; border: 1px solid #c5d8fb }
+    .n-app { background: #e6f4ea; color: #188038; border: 1px solid #b7dfbe }
+    .n-db  { background: #fce8e6; color: #c5221f; border: 1px solid #f5c6c4 }
+
+    /* ── Main layout ── */
+    main { max-width: 1100px; margin: 24px auto; padding: 0 16px }
+
+    /* ── Add product form ── */
+    .form-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px 24px; margin-bottom: 24px;
+    }
+    .form-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text) }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap }
+    .form-row input {
+      border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px;
+      font-size: 13px; color: var(--text); outline: none; flex: 1; min-width: 120px;
+      transition: border-color .15s;
+    }
+    .form-row input:focus { border-color: var(--blue) }
+    .btn {
+      padding: 9px 20px; border-radius: 6px; border: none; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85 }
+    .btn-primary { background: var(--blue); color: #fff }
+    .btn-danger  { background: var(--red);  color: #fff; padding: 5px 12px; font-size: 12px }
+
+    /* ── Products grid ── */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-header h2 { font-size: 15px; font-weight: 600 }
+    .count-badge {
+      font-size: 12px; background: var(--blue); color: #fff;
+      padding: 2px 10px; border-radius: 99px; font-weight: 600;
+    }
+    .product-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;
+    }
+    .product-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; display: flex; flex-direction: column; gap: 8px;
+      transition: box-shadow .15s;
+    }
+    .product-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08) }
+    .product-name  { font-size: 14px; font-weight: 600; color: var(--text) }
+    .product-price { font-size: 20px; font-weight: 700; color: var(--green) }
+    .product-stock { font-size: 12px; color: var(--muted) }
+    .product-footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border) }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #323232; color: #fff; padding: 10px 18px;
+      border-radius: 8px; font-size: 13px; opacity: 0;
+      transition: opacity .25s; pointer-events: none; z-index: 100;
+    }
+    #toast.show { opacity: 1 }
+
+    /* ── Status bar ── */
+    .status-bar {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 16px; margin-bottom: 20px; display: flex; gap: 20px;
+      flex-wrap: wrap; font-size: 12px; color: var(--muted);
+    }
+    .status-item strong { color: var(--text) }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px }
+    .dot-green { background: var(--green) }
+    .dot-red   { background: var(--red)   }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--blue); border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 40px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg) } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+      <path d="M16 10a4 4 0 01-8 0"/>
+    </svg>
+    GKE Store — Multi-Tier Demo
+  </h1>
+  <div class="arch-badge">
+    <span class="badge badge-web">Web Tier</span>
+    <span class="badge badge-app">App Tier</span>
+    <span class="badge badge-db">DB Tier</span>
+  </div>
+</header>
+
+<!-- Architecture banner -->
+<div class="arch-banner">
+  <div class="arch-node n-web">
+    🌐 Web Tier
+    <small>Nginx · Deployment</small>
+  </div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node n-app">
+    ⚙️ App Tier
+    <small>Node.js · Deployment</small>
+  </div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node n-db">
+    🗄️ Data Tier
+    <small>PostgreSQL · StatefulSet</small>
+  </div>
+</div>
+
+<main>
+  <!-- Status -->
+  <div class="status-bar" id="status-bar">
+    <span><span class="dot dot-red" id="api-dot"></span><strong>API:</strong> <span id="api-status">checking…</span></span>
+    <span><strong>Backend URL:</strong> <span id="api-url">—</span></span>
+    <span><strong>Web Tier Pod:</strong> Nginx on GKE</span>
+    <span><strong>Namespace:</strong> store</span>
+  </div>
+
+  <!-- Add product form -->
+  <div class="form-card">
+    <h2>➕ Add Product (POST /api/products)</h2>
+    <div class="form-row">
+      <input id="inp-name"  type="text"   placeholder="Product name" />
+      <input id="inp-price" type="number" placeholder="Price (₹)" step="0.01" min="0" />
+      <input id="inp-stock" type="number" placeholder="Stock qty"  min="0" />
+      <button class="btn btn-primary" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+
+  <!-- Products list -->
+  <div class="section-header">
+    <h2>📦 Products (GET /api/products)</h2>
+    <span class="count-badge" id="count-badge">0</span>
+  </div>
+  <div id="product-grid" class="product-grid">
+    <div class="spinner"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────────
+  // BACKEND_URL is replaced by nginx proxy — all /api/* calls go
+  // to the backend service inside the cluster. No CORS issues.
+  const API = '/api';
+
+  // ── Health check ───────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const res = await fetch(`${API.replace('/api','')}/health`, { signal: AbortSignal.timeout(3000) });
+      const data = await res.json();
+      document.getElementById('api-dot').className = 'dot dot-green';
+      document.getElementById('api-status').textContent = `healthy (${data.timestamp?.slice(11,19) || 'ok'})`;
+      document.getElementById('api-url').textContent = window.location.origin + '/api';
+    } catch {
+      document.getElementById('api-dot').className = 'dot dot-red';
+      document.getElementById('api-status').textContent = 'unreachable';
+    }
+  }
+
+  // ── Fetch products ──────────────────────────────────────────────
+  async function loadProducts() {
+    const grid = document.getElementById('product-grid');
+    try {
+      const res  = await fetch(`${API}/products`);
+      const data = await res.json();
+      const products = data.products || [];
+      document.getElementById('count-badge').textContent = products.length;
+
+      if (products.length === 0) {
+        grid.innerHTML = '<div class="empty">No products yet. Add one above!</div>';
+        return;
+      }
+
+      grid.innerHTML = products.map(p => `
+        <div class="product-card" id="card-${p.id}">
+          <div class="product-name">${escHtml(p.name)}</div>
+          <div class="product-price">₹${parseFloat(p.price).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          <div class="product-stock">📦 ${p.stock} in stock</div>
+          <div class="product-footer">
+            <button class="btn btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      grid.innerHTML = `<div class="empty" style="color:#c5221f">❌ Could not reach App Tier API.<br><small>${err.message}</small></div>`;
+    }
+  }
+
+  // ── Add product ─────────────────────────────────────────────────
+  async function addProduct() {
+    const name  = document.getElementById('inp-name').value.trim();
+    const price = parseFloat(document.getElementById('inp-price').value);
+    const stock = parseInt(document.getElementById('inp-stock').value) || 0;
+    if (!name || isNaN(price)) { toast('⚠️ Name and price are required'); return; }
+    try {
+      const res = await fetch(`${API}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price, stock })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      document.getElementById('inp-name').value  = '';
+      document.getElementById('inp-price').value = '';
+      document.getElementById('inp-stock').value = '';
+      toast('✅ Product added!');
+      loadProducts();
+    } catch (err) {
+      toast('❌ ' + err.message);
+    }
+  }
+
+  // ── Delete product ──────────────────────────────────────────────
+  async function deleteProduct(id) {
+    try {
+      await fetch(`${API}/products/${id}`, { method: 'DELETE' });
+      document.getElementById(`card-${id}`)?.remove();
+      const remaining = document.querySelectorAll('.product-card').length;
+      document.getElementById('count-badge').textContent = remaining;
+      toast('🗑️ Product deleted');
+      if (remaining === 0) {
+        document.getElementById('product-grid').innerHTML = '<div class="empty">No products yet.</div>';
+      }
+    } catch (err) {
+      toast('❌ ' + err.message);
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────
+  checkHealth();
+  loadProducts();
+  setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>
