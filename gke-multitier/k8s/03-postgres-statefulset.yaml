@@ -1,0 +1,122 @@
+# ═══════════════════════════════════════════════════════════════
+# DATA TIER — PostgreSQL StatefulSet
+# Why StatefulSet (not Deployment)?
+#   - Stable pod name: postgres-0 (never changes)
+#   - Stable storage: PVC survives pod restarts
+#   - Ordered start/stop: safe for databases
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: store
+  labels:
+    app: gke-store
+    tier: data
+spec:
+  serviceName: postgres-service    # Must match the headless service name
+  replicas: 1                      # 1 primary (HA needs more setup — good for demo)
+  selector:
+    matchLabels:
+      app: postgres
+      tier: data
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: data
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+
+          # ── Environment from ConfigMap + Secret ──────────────
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          # ── Resource limits (required for GKE Autopilot) ─────
+          resources:
+            requests:
+              cpu:    "250m"      # 0.25 vCPU
+              memory: "256Mi"
+            limits:
+              cpu:    "500m"
+              memory: "512Mi"
+
+          # ── Health checks ────────────────────────────────────
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "storeuser", "-d", "storedb"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "storeuser", "-d", "storedb"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+
+          # ── Mount persistent storage ──────────────────────────
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+  # ── Persistent Volume Claim ──────────────────────────────────
+  # GKE automatically provisions a GCP Persistent Disk for this
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard-rwo    # GKE's default SSD-backed PVC
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+# ═══════════════════════════════════════════════════════════════
+# DATA TIER — PostgreSQL Service (ClusterIP)
+# ClusterIP = only reachable INSIDE the cluster.
+# The App Tier connects to "postgres-service:5432" — this DNS
+# name resolves to the pod IP automatically inside GKE.
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: store
+  labels:
+    app: gke-store
+    tier: data
+spec:
+  type: ClusterIP          # NOT exposed to internet — data tier is private
+  selector:
+    app: postgres
+    tier: data
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: store
+  labels:
+    app: gke-store
+    tier: data
+data:
+  # Non-sensitive DB settings go in ConfigMap
+  POSTGRES_DB:   storedb
+  POSTGRES_USER: storeuser
+  DB_HOST:       postgres-service   # Kubernetes Service name (DNS)
+  DB_PORT:       "5432"
+  DB_NAME:       storedb
+  DB_USER:       storeuser

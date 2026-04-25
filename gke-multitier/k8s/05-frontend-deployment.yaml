@@ -1,0 +1,88 @@
+# ═══════════════════════════════════════════════════════════════
+# WEB TIER — Nginx Frontend Deployment
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: store
+  labels:
+    app: gke-store
+    tier: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+    spec:
+      containers:
+        - name: frontend
+          # ── REPLACE with your Artifact Registry image path ──
+          image: asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/store-repo/store-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+
+          resources:
+            requests:
+              cpu:    "50m"
+              memory: "64Mi"
+            limits:
+              cpu:    "200m"
+              memory: "128Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+---
+# ═══════════════════════════════════════════════════════════════
+# WEB TIER — Frontend Service (LoadBalancer)
+# LoadBalancer = GKE creates a GCP External Load Balancer
+# and assigns a public IP. This is the only tier exposed
+# to the internet.
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: store
+  labels:
+    app: gke-store
+    tier: web
+  annotations:
+    # Tell GKE to create an external load balancer
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer         # Public internet access — WEB TIER ONLY
+  selector:
+    app: frontend
+    tier: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
