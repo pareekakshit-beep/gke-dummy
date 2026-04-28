@@ -29,7 +29,7 @@ spec:
       containers:
         - name: frontend
           # ── REPLACE with your Artifact Registry image path ──
-          image: asia-south1-docker.pkg.dev/YOUR_PROJECT_ID/store-repo/store-frontend:latest
+          image: asia-south1-docker.pkg.dev/trailakshit/my-repo/frontend:7f3a58b
           imagePullPolicy: Always
           ports:
             - containerPort: 80
