@@ -6,6 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
+  namespace: store
   labels:
     app: gke-store
     tier: app
@@ -53,7 +54,7 @@ spec:
           # ── REPLACE with your Artifact Registry image path ──
           # Format: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE:TAG
           # Example: asia-south1-docker.pkg.dev/feasibility-491311/store-repo/store-backend:latest
-          image: image: asia-south1-docker.pkg.dev/trailakshit/my-repo/backend:7f3a58b
+          image: asia-south1-docker.pkg.dev/trailakshit/my-repo/backend:7f3a58b
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
